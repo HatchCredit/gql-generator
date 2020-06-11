@@ -17,9 +17,10 @@ program
 const { schemaFilePath, destDirPath, depthLimit = 100, includeDeprecatedFields = false, name } = program;
 
 let typeDefs = [];
-const listSchemas = schemaFilePath.split(",")
+const listSchemas = fs.readdirSync(schemaFilePath);
+
 for(const index in listSchemas){
-  const typeDef = fs.readFileSync(listSchemas[index], "utf-8") + '\n';
+  const typeDef = fs.readFileSync(schemaFilePath + '/' + listSchemas[index], "utf-8") + '\n';
   typeDefs.push(gql(typeDef));
 }
 
