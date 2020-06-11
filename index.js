@@ -1,21 +1,32 @@
 #!/usr/bin/env node
-const fs = require('fs');
+const fs = require('fs')
 const path = require('path');
 const program = require('commander');
-const { Source, buildSchema } = require('graphql');
 const del = require('del');
+var { makeExecutableSchema } = require('graphql-tools');
+const { buildFederatedSchema, printSchema } = require('@apollo/federation');
+const { ApolloServer, gql } = require('apollo-server');
 
 program
+  .option('--name [value]', 'name of service')
   .option('--schemaFilePath [value]', 'path of your graphql schema file')
   .option('--destDirPath [value]', 'dir you want to store the generated queries')
   .option('--depthLimit [value]', 'query depth you want to limit(The default is 100)')
   .option('-C, --includeDeprecatedFields [value]', 'Flag to include deprecated fields (The default is to exclude)')
   .parse(process.argv);
 
-const { schemaFilePath, destDirPath, depthLimit = 100, includeDeprecatedFields = false } = program;
-const typeDef = fs.readFileSync(schemaFilePath, "utf-8");
-const source = new Source(typeDef);
-const gqlSchema = buildSchema(source);
+const { schemaFilePath, destDirPath, depthLimit = 100, includeDeprecatedFields = false, name } = program;
+
+let typeDefs = [];
+const listSchemas = schemaFilePath.split(",")
+for(const index in listSchemas){
+  const typeDef = fs.readFileSync(listSchemas[index], "utf-8") + '\n';
+  typeDefs.push(gql(typeDef));
+}
+
+const gqlSchema = buildFederatedSchema(
+  {typeDefs: typeDefs}
+)
 
 del.sync(destDirPath);
 path.resolve(destDirPath).split(path.sep).reduce((before, cur) => {
@@ -25,7 +36,6 @@ path.resolve(destDirPath).split(path.sep).reduce((before, cur) => {
   }
   return path.join(before, cur + path.sep);
 }, '');
-let indexJsExportAll = '';
 
 /**
  * Compile arguments dictionary for a field
@@ -160,9 +170,6 @@ const generateFile = (obj, description) => {
     case 'Query':
       outputFolderName = 'queries';
       break;
-    case 'Subscription':
-      outputFolderName = 'subscriptions';
-      break;
     default:
       console.log('[gqlg warning]:', 'description is required');
   }
@@ -184,8 +191,6 @@ const generateFile = (obj, description) => {
       indexJs += `module.exports.${type} = fs.readFileSync(path.join(__dirname, '${type}.gql'), 'utf8');\n`;
     }
   });
-  fs.writeFileSync(path.join(writeFolder, 'index.js'), indexJs);
-  indexJsExportAll += `module.exports.${outputFolderName} = require('./${outputFolderName}');\n`;
 };
 
 if (gqlSchema.getMutationType()) {
@@ -200,10 +205,4 @@ if (gqlSchema.getQueryType()) {
   console.log('[gqlg warning]:', 'No query type found in your schema');
 }
 
-if (gqlSchema.getSubscriptionType()) {
-  generateFile(gqlSchema.getSubscriptionType().getFields(), 'Subscription');
-} else {
-  console.log('[gqlg warning]:', 'No subscription type found in your schema');
-}
 
-fs.writeFileSync(path.join(destDirPath, 'index.js'), indexJsExportAll);
