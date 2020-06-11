@@ -8,7 +8,6 @@ const { buildFederatedSchema, printSchema } = require('@apollo/federation');
 const { ApolloServer, gql } = require('apollo-server');
 
 program
-  .option('--name [value]', 'name of service')
   .option('--schemaFilePath [value]', 'path of your graphql schema file')
   .option('--destDirPath [value]', 'dir you want to store the generated queries')
   .option('--depthLimit [value]', 'query depth you want to limit(The default is 100)')
