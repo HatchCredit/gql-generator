@@ -8,13 +8,14 @@ const { buildFederatedSchema, printSchema } = require('@apollo/federation');
 const { ApolloServer, gql } = require('apollo-server');
 
 program
+  .option('--name [value]', 'name of service')
   .option('--schemaFilePath [value]', 'path of your graphql schema file')
   .option('--destDirPath [value]', 'dir you want to store the generated queries')
   .option('--depthLimit [value]', 'query depth you want to limit(The default is 100)')
   .option('-C, --includeDeprecatedFields [value]', 'Flag to include deprecated fields (The default is to exclude)')
   .parse(process.argv);
 
-const { schemaFilePath, destDirPath, depthLimit = 100, includeDeprecatedFields = false, name } = program;
+const { schemaFilePath, destDirPath, depthLimit = 100, includeDeprecatedFields = false, name="unknown-schema" } = program;
 
 let typeDefs = [];
 const listSchemas = fs.readdirSync(schemaFilePath);
@@ -187,8 +188,8 @@ const generateFile = (obj, description) => {
       const varsToTypesStr = getVarsToTypesStr(queryResult.argumentsDict);
       let query = queryResult.queryStr;
       query = `${description.toLowerCase()} ${type}${varsToTypesStr ? `(${varsToTypesStr})` : ''}{\n${query}\n}`;
-      fs.writeFileSync(path.join(writeFolder, `./${type}.gql`), query);
-      indexJs += `module.exports.${type} = fs.readFileSync(path.join(__dirname, '${type}.gql'), 'utf8');\n`;
+      fs.writeFileSync(path.join(writeFolder, `./${type}.graphql`), query);
+      indexJs += `module.exports.${type} = fs.readFileSync(path.join(__dirname, '${type}.graphql'), 'utf8');\n`;
     }
   });
 };
@@ -205,4 +206,8 @@ if (gqlSchema.getQueryType()) {
   console.log('[gqlg warning]:', 'No query type found in your schema');
 }
 
-
+fs.mkdirSync(schemaFilePath);
+fs.appendFileSync(schemaFilePath + '/' + name + '.graphql', printSchema(gqlSchema))
+// for(const index in listSchemas){
+//   fs.unlinkSync(listSchemas[index])
+// }
